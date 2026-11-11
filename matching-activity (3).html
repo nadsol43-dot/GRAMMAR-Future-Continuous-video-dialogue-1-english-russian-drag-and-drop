@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matching Activity · Phrases and Definitions</title>
+<style>
+  /* Design A: dark blue background with a touch of purple and grey, light cards, bright lines */
+  :root{
+    --bg:#26315c;                 /* dark blue with a little purple and grey in it */
+    --card:#fbfbfe;               /* the cards and panels stay light */
+    --ink:#1d2130;                /* text inside light panels */
+    --muted:#5d6473;
+    --on-bg:#f4f2fa;              /* text on the dark background */
+    --on-bg-dim:#cdcfe0;
+    --gold:#ecc573;               /* bright gold, for the dark areas */
+    --gold-ink:#8a5a08;           /* dark gold, for text inside light panels */
+    --gold-fill:#ecc671; --gold-deep:#dcae50; --gold-dim:rgba(150,100,15,.25); --gold-soft:#fdf3d7; --on-gold:#2a1c02;
+    --good:#12805a; --good-soft:#e7f5ef; --bad:#c93636; --bad-soft:#fdecea;   /* dark green / red: used inside light cards */
+    --good-line:#4fe0a6; --bad-line:#ff8080;                                  /* bright green / red: used for lines on the dark background */
+    --line:#d8d9e4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1100px 620px at 10% -10%, #4a4596 0%, rgba(74,69,150,0) 62%),     /* indigo (blue-purple), top left */
+      radial-gradient(900px 560px at 92% -6%,  #2f55a3 0%, rgba(47,85,163,0) 60%),      /* blue, top right */
+      radial-gradient(1100px 680px at 96% 108%, #2a62a0 0%, rgba(42,98,160,0) 62%),     /* brighter blue, bottom right */
+      linear-gradient(160deg, #2d376a 0%, #25305a 55%, #27344f 100%);                    /* deep blue base, greyer towards the bottom */
+    background-attachment:fixed;
+    color:var(--on-bg); min-height:100vh;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:26px 20px 56px}
+
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  h1{margin:0;font-size:clamp(24px,3.6vw,38px);letter-spacing:.01em;font-family:Georgia,"Times New Roman",serif;font-weight:400;color:var(--on-bg)}
+  h1 b{color:var(--gold);font-weight:700;font-style:italic}
+  .sub{color:var(--on-bg-dim);margin:8px 0 0;font-size:14px;line-height:1.5;max-width:60ch}
+  .sub b{color:var(--on-bg);font-weight:600}
+
+  .score{display:flex;align-items:center;gap:12px;padding:9px 16px 9px 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+  .score .lab{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+  .score .num{font-family:Georgia,serif;font-size:22px;color:var(--gold-ink);font-variant-numeric:tabular-nums}
+  .score.win{border-color:var(--good);background:var(--good-soft)} .score.win .num{color:var(--good)}
+
+  /* ---------- board ---------- */
+  .heads,.board{display:grid;grid-template-columns:minmax(0,5fr) clamp(30px,9vw,120px) minmax(0,7fr)}
+  .heads{margin-bottom:10px}
+  .heads div{font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);font-weight:700;line-height:1.5}
+  .heads div span{display:block;color:var(--on-bg-dim);letter-spacing:.1em;font-weight:400}
+  .heads .hb{grid-column:3}
+
+  .board{position:relative;align-items:stretch}
+  .col{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .col.a{grid-column:1} .col.b{grid-column:3}
+  .col.a .item{flex:1}
+  svg.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  svg.lines path{fill:none;stroke-width:3.5;stroke-linecap:round;transition:stroke .2s}
+  svg.lines path.halo{stroke:rgba(16,16,30,.6);stroke-width:8;stroke-dasharray:none}   /* dark edge so crossing lines stay separate */
+  svg.lines circle{stroke:rgba(16,16,30,.6);stroke-width:1.5}
+  svg.lines .bad{stroke-dasharray:7 7}
+
+  .item{--c:var(--gold);
+    display:flex;align-items:center;gap:12px;width:100%;min-height:50px;padding:10px 12px;text-align:left;
+    font:inherit;font-size:15px;line-height:1.35;color:var(--ink);cursor:pointer;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.22);
+    transition:background .15s,border-color .15s,box-shadow .15s,transform .15s}
+  .item:hover:not(:disabled){background:#f2f3fa;border-color:#b6bad0}
+  .item:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .item .tag{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+    font-family:Georgia,serif;font-size:15px;color:var(--gold-ink);border:1px solid var(--gold-dim);background:#f4f1fb}
+  .item .txt{flex:1;min-width:0;overflow-wrap:break-word}
+  .col.a .txt{font-family:Georgia,"Times New Roman",serif;font-size:17px}
+  .item .chip{flex:none;display:none;align-items:center;gap:4px;min-width:28px;height:26px;padding:0 8px;border-radius:13px;justify-content:center;
+    background:var(--c);color:#14151d;font-weight:700;font-size:13px}
+  .item.paired{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c),0 2px 8px rgba(0,0,0,.22)}
+  .item.paired .chip{display:inline-flex}
+  .item.sel,.item.sel:hover{border-color:var(--gold-ink);box-shadow:0 0 0 3px var(--gold),0 0 22px rgba(236,197,115,.45);background:var(--gold-soft)}
+  .item.ok{--c:var(--good);background:var(--good-soft);cursor:default}
+  .item.bad{--c:var(--bad);background:var(--bad-soft)}
+  .item.ok .chip,.item.bad .chip{color:#fff}   /* dark green / red badges need white text */
+  .item.shown{cursor:default}
+  .item:disabled{color:var(--ink);opacity:1}
+  .item.bad{animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+  /* ---------- status + controls ---------- */
+  .status{margin-top:18px;min-height:48px;padding:11px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14.5px;line-height:1.45;box-shadow:0 2px 12px rgba(0,0,0,.28)}
+  .status.win{border-color:var(--good);background:var(--good-soft)}
+  .status.warn{border-color:var(--bad);background:var(--bad-soft)}
+  .status b{color:var(--gold-ink)}
+  .status.win b{color:var(--good)}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .btn{border:1px solid #c9cbdb;font-family:inherit;font-weight:600;font-size:13.5px;letter-spacing:.04em;
+    padding:12px 20px;border-radius:999px;cursor:pointer;background:var(--card);color:var(--ink);transition:.18s;white-space:nowrap}
+  .btn:hover:not(:disabled){background:#eef0f8;transform:translateY(-1px)}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.primary{background:linear-gradient(180deg,var(--gold-fill),var(--gold-deep));color:var(--on-gold);border-color:#c99a3c;box-shadow:0 10px 24px -10px rgba(223,180,95,.75)}
+  .btn.primary:hover:not(:disabled){background:linear-gradient(180deg,#f3d48a,var(--gold-fill))}
+  .btn.small{padding:7px 14px;font-size:12.5px}
+  .spacer{flex:1}
+
+  .key{margin-top:16px;padding:14px 16px;border-radius:10px;border:1px dashed rgba(223,180,95,.6);background:var(--card);color:#333a48;font-size:14.5px;line-height:1.9;display:none;box-shadow:0 2px 12px rgba(0,0,0,.28)}
+  .key.show{display:block}
+  .key h3{margin:0 0 4px;font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-ink);font-weight:700}
+  .key span{display:inline-block;margin-right:14px;white-space:nowrap}
+  .key b{color:var(--gold-ink);font-family:Georgia,serif;font-size:16px}
+
+  @media (max-width:640px){
+    .wrap{padding:20px 12px 44px}
+    .item{gap:7px;padding:9px 7px;font-size:13.5px;min-height:46px}
+    .heads,.board{grid-template-columns:minmax(0,5fr) 28px minmax(0,7fr)}
+    .col.a .txt{font-size:14.5px}
+    .item .tag{width:23px;height:23px;font-size:13px}
+    /* on phones the match badge sits on the card corner so the text keeps its full width */
+    .item{position:relative}
+    .item .chip{position:absolute;top:-13px;right:-5px;min-width:22px;height:22px;padding:0 6px;font-size:12px;box-shadow:0 0 0 2px var(--card)}
+    .col{gap:17px}
+    .heads div{letter-spacing:.16em}
+    .controls .btn{flex:1 1 40%;padding:12px 10px}
+    .spacer{display:none}
+  }
+  @media (max-width:350px){ .col.a .txt{font-size:13.5px} .item .tag{width:20px;height:20px;font-size:12px} }
+  @media (prefers-reduced-motion:reduce){ .item.bad{animation:none} .btn,.item{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Match the <b>Phrases</b></h1>
+      <p class="sub">Match each phrase in <b>Column A</b> with its definition in <b>Column B</b>. Click a phrase, then click its definition.</p>
+    </div>
+    <div class="score" id="score"><span class="lab" id="scoreLab">Matched</span><span class="num" id="scoreNum">0 / 8</span></div>
+  </header>
+
+  <div class="heads">
+    <div>Column A<span>Word / expression</span></div>
+    <div class="hb">Column B<span>Definition</span></div>
+  </div>
+
+  <div class="board" id="board">
+    <div class="col a" id="colA"></div>
+    <div class="col b" id="colB"></div>
+    <svg class="lines" id="lines" aria-hidden="true"></svg>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite">
+    <span id="statusText">Choose a phrase to begin.</span>
+    <button class="btn small" id="unmatch" hidden>Remove this match</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="check">Check answers</button>
+    <button class="btn" id="reset">Start again</button>
+    <span class="spacer"></span>
+    <button class="btn" id="shuffle">Shuffle definitions</button>
+    <button class="btn" id="reveal">Show answers</button>
+  </div>
+
+  <div class="key" id="key"><h3>Answer key</h3><div id="keyBody"></div></div>
+</div>
+
+<script>
+/* ---------- Data: each phrase with its own definition ---------- */
+const ITEMS = [
+  { n:1, phrase:'to see the sights',      def:'to visit famous or interesting places' },
+  { n:2, phrase:'sparks fly',             def:'a sudden feeling of excitement or romance between two people' },
+  { n:3, phrase:'to get carried away',    def:'to be or become too excited about something' },
+  { n:4, phrase:'to turn out (to be)',    def:'the final result; to happen in a particular way' },
+  { n:5, phrase:'to check (something)',   def:'to look for information, often online' },
+  { n:6, phrase:'to cancel (on someone)', def:'to stop doing a planned activity' },
+  { n:7, phrase:'a third wheel',          def:'a person who is with a couple, often feeling left out' },
+  { n:8, phrase:'to get serious',         def:'to become serious or important (like a relationship)' }
+];
+/* Column B as printed on the worksheet: a–h hold the definitions of phrases 8,5,1,6,7,3,4,2 */
+const WORKSHEET_ORDER = [8,5,1,6,7,3,4,2];
+const LETTERS = 'abcdefgh';
+const COLORS = ['#e8c37a','#6db8ff','#ff8a6b','#b596ff','#4fd6c0','#ff86bd','#b9e36a','#c3cbe0'];  // one bright colour per pair, reads on the dark background
+const TOTAL = ITEMS.length;
+const byN = n => ITEMS.find(x => x.n === n);
+
+/* ---------- State ---------- */
+const state = {
+  order: WORKSHEET_ORDER.slice(),   // definition order in Column B
+  pairs: new Map(),                 // phrase n -> definition n (correct when equal)
+  result: new Map(),                // phrase n -> 'ok' | 'bad' (after checking)
+  sel: null,                        // { col:'a'|'b', n }
+  revealed: false,
+  checks: 0
+};
+const $ = id => document.getElementById(id);
+const letterOf = defN => LETTERS[state.order.indexOf(defN)];
+const phraseFor = defN => { for(const [a,b] of state.pairs) if(b === defN) return a; return null; };
+const locked = (col, n) => {
+  if(state.revealed) return true;
+  const a = col === 'a' ? n : phraseFor(n);
+  return a != null && state.result.get(a) === 'ok';
+};
+
+/* ---------- Build columns ---------- */
+function build(){
+  $('colA').innerHTML = ITEMS.map(x =>
+    `<button class="item" data-col="a" data-n="${x.n}"><span class="tag">${x.n}</span><span class="txt">${x.phrase}</span><span class="chip"></span></button>`).join('');
+  $('colB').innerHTML = state.order.map((n,i) =>
+    `<button class="item" data-col="b" data-n="${n}"><span class="tag">${LETTERS[i]}</span><span class="txt">${byN(n).def}</span><span class="chip"></span></button>`).join('');
+}
+const el = (col, n) => document.querySelector(`.item[data-col="${col}"][data-n="${n}"]`);
+
+/* ---------- Update view ---------- */
+function update(){
+  document.querySelectorAll('.item').forEach(b => {
+    const col = b.dataset.col, n = +b.dataset.n;
+    const a = col === 'a' ? (state.pairs.has(n) ? n : null) : phraseFor(n);
+    const res = a != null ? state.result.get(a) : null;
+    b.className = 'item' + (a != null ? ' paired' : '') + (res ? ' ' + res : '') + (state.revealed ? ' shown' : '')
+      + (state.sel && state.sel.col === col && state.sel.n === n ? ' sel' : '');
+    b.style.setProperty('--c', '');
+    if(a != null && !res) b.style.setProperty('--c', COLORS[a-1]);
+    const partner = a == null ? '' : (col === 'a' ? letterOf(state.pairs.get(a)) : String(a));
+    b.querySelector('.chip').textContent = partner + (res === 'ok' ? ' ✓' : res === 'bad' ? ' ✗' : '');
+    b.disabled = locked(col, n);
+    b.setAttribute('aria-pressed', b.classList.contains('sel'));
+    const name = col === 'a' ? `${n}. ${byN(n).phrase}` : `${letterOf(n)}. ${byN(n).def}`;
+    b.setAttribute('aria-label', name + (partner ? `. Matched with ${partner}` : '') + (res === 'ok' ? ', correct' : res === 'bad' ? ', not correct' : ''));
+  });
+
+  const right = [...state.result.values()].filter(v => v === 'ok').length;
+  const showScore = state.checks > 0 && !state.revealed;
+  $('scoreLab').textContent = showScore ? 'Correct' : 'Matched';
+  $('scoreNum').textContent = `${showScore ? right : state.pairs.size} / ${TOTAL}`;
+  $('score').classList.toggle('win', showScore && right === TOTAL);
+  $('check').disabled = state.revealed || state.pairs.size === 0 || right === TOTAL;
+  $('reveal').disabled = state.revealed;
+
+  const s = state.sel;
+  const selPaired = s && (s.col === 'a' ? state.pairs.has(s.n) : phraseFor(s.n) != null);
+  $('unmatch').hidden = !selPaired;
+  drawLines();
+}
+
+function say(html, kind){
+  $('statusText').innerHTML = html;
+  $('status').className = 'status' + (kind ? ' ' + kind : '');
+}
+
+/* ---------- Connecting lines ---------- */
+function drawLines(){
+  const board = $('board').getBoundingClientRect();
+  $('lines').setAttribute('viewBox', `0 0 ${board.width} ${board.height}`);
+  let halo = '', out = '';
+  for(const [a, d] of state.pairs){
+    const A = el('a', a).getBoundingClientRect(), B = el('b', d).getBoundingClientRect();
+    const x1 = A.right - board.left, y1 = A.top + A.height/2 - board.top;
+    const x2 = B.left - board.left,  y2 = B.top + B.height/2 - board.top;
+    const k = (x2 - x1) * .5;
+    const res = state.result.get(a);
+    const c = res === 'ok' ? 'var(--good-line)' : res === 'bad' ? 'var(--bad-line)' : COLORS[a-1];
+    const path = `M${x1} ${y1} C${x1+k} ${y1}, ${x2-k} ${y2}, ${x2} ${y2}`;
+    halo += `<path class="halo" d="${path}"/>`;
+    out  += `<path class="${res||''}" stroke="${c}" d="${path}"/>`
+         +  `<circle cx="${x1}" cy="${y1}" r="4.5" fill="${c}"/><circle cx="${x2}" cy="${y2}" r="4.5" fill="${c}"/>`;
+  }
+  out = halo + out;
+  $('lines').innerHTML = out;
+}
+
+/* ---------- Actions ---------- */
+function pick(col, n){
+  if(locked(col, n)) return;
+  const s = state.sel;
+  if(s && s.col === col && s.n === n){ state.sel = null; say('Choose a phrase to begin.'); return update(); }
+  if(!s || s.col === col){
+    state.sel = { col, n };
+    const label = col === 'a' ? `<b>${n}. ${byN(n).phrase}</b>` : `definition <b>${letterOf(n)}</b>`;
+    say(col === 'a' ? `${label} — now choose its definition in Column B.` : `You chose ${label} — now choose the phrase in Column A.`);
+    return update();
+  }
+  const a = col === 'a' ? n : s.n, d = col === 'b' ? n : s.n;
+  const old = phraseFor(d);                       // the definition can belong to one phrase only
+  if(old != null && old !== a){ state.pairs.delete(old); state.result.delete(old); }
+  state.pairs.set(a, d); state.result.delete(a);
+  state.sel = null;
+  const left = TOTAL - state.pairs.size;
+  say(`Matched <b>${a}</b> with <b>${letterOf(d)}</b>. ` + (left ? `${left} to go.` : 'All matched — press “Check answers”.'));
+  update();
+}
+function unmatch(){
+  const s = state.sel; if(!s) return;
+  const a = s.col === 'a' ? s.n : phraseFor(s.n);
+  if(a == null) return;
+  state.pairs.delete(a); state.result.delete(a); state.sel = null;
+  say(`Match for <b>${a}</b> removed.`);
+  update();
+}
+function check(){
+  state.checks++; state.sel = null; state.result.clear();
+  for(const [a, d] of state.pairs) state.result.set(a, a === d ? 'ok' : 'bad');
+  const right = [...state.result.values()].filter(v => v === 'ok').length;
+  const wrong = state.pairs.size - right, missing = TOTAL - state.pairs.size;
+  if(right === TOTAL){
+    say(`<b>${TOTAL} / ${TOTAL}</b> — that’s a wrap! All matches are correct` + (state.checks === 1 ? ' on the first try.' : ` (checked ${state.checks} times).`), 'win');
+    showKey(true);
+  } else {
+    const parts = [];
+    if(wrong) parts.push(`${wrong} not correct (marked ✗) — choose another definition for ${wrong === 1 ? 'it' : 'them'}`);
+    if(missing) parts.push(`${missing} not matched yet`);
+    say(`<b>${right} / ${TOTAL}</b> correct. ${parts.join('; ')}.`, wrong ? 'warn' : '');
+  }
+  update();
+}
+function reset(keepOrder){
+  state.pairs.clear(); state.result.clear(); state.sel = null; state.revealed = false; state.checks = 0;
+  if(!keepOrder) state.order = WORKSHEET_ORDER.slice();
+  build(); showKey(false);
+  say('Choose a phrase to begin.');
+  update();
+}
+function shuffle(){
+  const o = state.order, before = o.join();
+  do { for(let i=o.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [o[i],o[j]]=[o[j],o[i]]; } } while(o.join() === before);
+  reset(true);
+  say('Definitions shuffled — the letters a–h now point to new definitions.');
+}
+function reveal(){
+  state.revealed = true; state.sel = null; state.result.clear(); state.pairs.clear();
+  ITEMS.forEach(x => state.pairs.set(x.n, x.n));
+  say('Answers shown. Press “Start again” to try without help.');
+  showKey(true); update();
+}
+function showKey(on){
+  $('key').classList.toggle('show', on);
+  if(on) $('keyBody').innerHTML = ITEMS.map(x => `<span><b>${x.n} – ${letterOf(x.n)}</b>&nbsp; ${x.phrase}</span>`).join('');
+}
+
+/* ---------- Events ---------- */
+$('board').addEventListener('click', e => { const b = e.target.closest('.item'); if(b) pick(b.dataset.col, +b.dataset.n); });
+$('unmatch').onclick = unmatch;
+$('check').onclick = check;
+$('reset').onclick = () => reset(false);
+$('shuffle').onclick = shuffle;
+$('reveal').onclick = reveal;
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && state.sel){ state.sel = null; say('Choose a phrase to begin.'); update(); } });
+if('ResizeObserver' in window) new ResizeObserver(drawLines).observe($('board')); else window.addEventListener('resize', drawLines);
+
+build(); update();
+</script>
+</body>
+</html>
